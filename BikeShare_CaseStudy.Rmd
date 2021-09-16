@@ -1,0 +1,348 @@
+---
+title: 'Case Study: Analysing Bike-share Data'
+author: "K.Tarus"
+date: "8/26/2021"
+output: html_document
+editor_options: 
+  markdown: 
+    wrap: 72
+  chunk_output_type: inline
+---
+
+This case study is completed as part of the Google Data Analytics
+Professional Certificate and it serves to highlight some of the skills
+gained from the program that can be applied in a position as a data
+analyst. I intend to use it to display skills such as data cleaning and
+manipulation, data analysis, visualisation and understanding business
+problems and how to leverage data to find solutions.
+
+Data used has been made available by Motivate International Inc.
+under this [license](https://www.divvybikes.com/data-license-agreement).
+The data can be downloaded from
+[here](https://divvy-tripdata.s3.amazonaws.com/index.html).
+
+### Business Task
+
+Cyclistic is a bike-share company that has a both a subscription model
+and a pay-as-you-ride model. Its subscribers are called *members* and
+are more profitable than *casual* users of the service.
+
+The objective of this analysis is to dig into the last 12 months of
+Cyclistic's data to find out how members and casual riders differ in
+their use of Cyclistic services, and to find casual users that are the
+best candidates for conversion to members. The marketing team at
+Cyclistic is to leverage this knowledge to create a marketing campaign
+to that end.
+
+
+#### Setting up the environment
+
+We will use the *tidyverse* and *lubridate*
+
+```{r, include=FALSE}
+library(tidyverse)
+library(lubridate)
+```
+
+#### Importing the necessary data
+
+The data used are contained in these files: Divvy_Trips_2019_Q2,
+Divvy_Trips_2019_Q3, Divvy_Trips_2019_Q4, Divvy_Trips_2020_Q1 from the source above.
+
+```{r, include=FALSE}
+q2_2019 <- read.csv("C:/Users/tarus/Desktop/Case Study/Divvy_Trips_2019_Q2/Divvy_Trips_2019_Q2")
+
+q3_2019<- read.csv("C:/Users/tarus/Desktop/Case Study/Divvy_Trips_2019_Q3/Divvy_Trips_2019_Q3.csv")
+
+q4_2019 <- read.csv("C:/Users/tarus/Desktop/Case Study/Divvy_Trips_2019_Q4/Divvy_Trips_2019_Q4.csv")
+
+q1_2020 <- read.csv("C:/Users/tarus/Desktop/Case Study/Divvy_Trips_2020_Q1/Divvy_Trips_2020_Q1.csv")
+
+```
+
+### Data Cleaning and Manipulation
+
+1.  Renaming all columns from 2019 to be consistent with the column
+    names below.
+
+```{r, echo=FALSE}
+colnames(q1_2020)
+```
+
+```{r, include=FALSE}
+
+(q4_2019 <- rename(q4_2019
+                   ,ride_id = trip_id
+                   ,rideable_type = bikeid 
+                   ,started_at = start_time  
+                   ,ended_at = end_time  
+                   ,start_station_name = from_station_name 
+                   ,start_station_id = from_station_id 
+                   ,end_station_name = to_station_name 
+                   ,end_station_id = to_station_id 
+                   ,member_casual = usertype))
+
+(q3_2019 <- rename(q3_2019
+                   ,ride_id = trip_id
+                   ,rideable_type = bikeid 
+                   ,started_at = start_time  
+                   ,ended_at = end_time  
+                   ,start_station_name = from_station_name 
+                   ,start_station_id = from_station_id 
+                   ,end_station_name = to_station_name 
+                   ,end_station_id = to_station_id 
+                   ,member_casual = usertype))
+
+(q2_2019 <- rename(q2_2019
+                   ,ride_id = "X01...Rental.Details.Rental.ID"
+                   ,rideable_type = "X01...Rental.Details.Bike.ID" 
+                   ,started_at = "X01...Rental.Details.Local.Start.Time"  
+                   ,ended_at = "X01...Rental.Details.Local.End.Time"  
+                   ,start_station_name = "X03...Rental.Start.Station.Name" 
+                   ,start_station_id = "X03...Rental.Start.Station.ID"
+                   ,end_station_name = "X02...Rental.End.Station.Name" 
+                   ,end_station_id = "X02...Rental.End.Station.ID"
+                   ,member_casual = "User.Type"))
+```
+
+Some differences in the data set:
+
+-   ride_id, q1_2019 is type *chr* while the rest are type *int*. Change
+    all types to *chr*
+
+-   ridable_type, q1_2020 is inconsistent, contains type *chr* while the
+    rest are type *int*. Change all types to *chr*
+
+-   q1_2020 does not contain column trip_duration. Omit column.
+
+-   Only q2, q3, q4 of 2019 contain columns for gender and birth year.
+    Omit these columns.
+
+-   Only q1_2020 contains the columns: start_lat, start_lng, end_lat,
+    end_lng. Omit these columns.
+
+Fixing the inconsistencies listed above
+
+```{r, results='hide'}
+q4_2019 <-  mutate(q4_2019, ride_id = as.character(ride_id),
+                   rideable_type = as.character(rideable_type)) 
+q3_2019 <-  mutate(q3_2019, ride_id = as.character(ride_id),
+                   rideable_type = as.character(rideable_type)) 
+q2_2019 <-  mutate(q2_2019, ride_id = as.character(ride_id),
+                   rideable_type = as.character(rideable_type))
+```
+
+2.  Bring together the 4 data frames into one called 'divvy_all_trips'.
+
+```{r}
+divvy_all_trips <- bind_rows(q2_2019, q3_2019, q4_2019, q1_2020)
+View(divvy_all_trips)
+
+divvy_all_trips <- divvy_all_trips %>% 
+  select(-c(X01...Rental.Details.Duration.In.Seconds.Uncapped, Member.Gender,
+            X05...Member.Details.Member.Birthday.Year, gender, birthyear,
+            start_lat, start_lng, end_lat, end_lng, tripduration, ride_id))
+
+rm(q1_2020)
+rm(q2_2019)
+rm(q3_2019)
+rm(q4_2019)
+```
+
+3.There are only 2 types of users but 4 labels in the member_casual
+column.
+
+```{r}
+divvy_all_trips <-  divvy_all_trips %>% 
+  mutate(member_casual = recode(member_casual
+                                ,"Subscriber" = "member"
+                                ,"Customer" = "casual"))
+```
+
+4.  Create new columns for date, day, month, year and day of the week.
+
+```{r}
+divvy_all_trips$date <- as.Date(divvy_all_trips$started_at) 
+divvy_all_trips$month <- format(as.Date(divvy_all_trips$date), "%m")
+divvy_all_trips$day <- format(as.Date(divvy_all_trips$date), "%d")
+divvy_all_trips$year <- format(as.Date(divvy_all_trips$date), "%Y")
+divvy_all_trips$day_of_week <- format(as.Date(divvy_all_trips$date), "%A")
+```
+
+5.  Create a new column showing the duration of each trip.
+
+```{r, results='hide'}
+divvy_all_trips$trip_duration <- difftime(divvy_all_trips$ended_at,divvy_all_trips$started_at)
+
+divvy_all_trips$trip_duration <- as.numeric(as.character(divvy_all_trips$trip_duration))
+
+divvy_all_trips <- divvy_all_trips[!(divvy_all_trips$trip_duration<0),]
+# 130 instances removed.
+
+divvy_all_trips$ride_id[duplicated(divvy_all_trips$ride_id)] # Check for duplicated rows
+# None found
+```
+
+6.  Rides that begin from HQ QR indicate that the bike was taken out of
+    the station for repair. These rows should be omitted.
+
+```{r, results='hide'}
+divvy_all_trips <- divvy_all_trips [!(divvy_all_trips$start_station_name == "HQ QR"),]
+#3650 rows removed
+divvy_all_trips <- divvy_all_trips [!(divvy_all_trips$end_station_name == "HQ QR"),]
+#1 row removed
+```
+
+7.  Putting the weekdays in chronological order.
+
+```{r, results='hide'}
+divvy_all_trips$day_of_week <- ordered(divvy_all_trips$day_of_week, 
+                                    levels=c("Monday", "Tuesday", "Wednesday", 
+                                             "Thursday", "Friday", "Saturday",
+                                             "Sunday"))
+```
+
+### Analyzing the Data
+
+#### Comparing the two user categories to find how they differ.
+
+1.  How many times do members and casual riders take non-stop round
+    trips?
+
+```{r, echo=FALSE}
+divvy_all_trips %>% 
+  filter(start_station_id == end_station_id) %>% 
+  group_by(member_casual) %>% 
+  summarise(round_trips=n())
+divvy_all_trips %>% 
+  group_by(member_casual) %>% 
+  summarise(all_trips=n())
+```
+
+We find that only about 2% of members take non-stop round trips, while
+about 12% of casual riders take round trips. This is true even though
+76% of all rides recorded are by members.
+
+2.  Creating two data sets: trend_by_week and trend_by_month. The data
+    sets summarize the number of trips and the length of the trips that
+    users take by week and month.
+
+```{r, results='hide', message=FALSE}
+trend_by_week <- divvy_all_trips %>% 
+  group_by(member_casual, day_of_week) %>%                   #groups data by usertype and weekday
+  summarise(number_of_rides = n(),                           #sums the number of rides
+            average_duration = mean(trip_duration)) %>%      #calculates the average trip_duration
+  arrange(member_casual, day_of_week)                        #arranges the data first by member_casual then by weekday
+
+trend_by_month <- divvy_all_trips %>% 
+  group_by(member_casual, month) %>% 
+  summarise(number_of_rides = n(),
+            average_duration = mean(trip_duration)) %>% 
+  arrange(month, member_casual)
+```
+
+The trend_by_week data set is visualized below to show any trends in the
+data.
+
+```{r, echo=FALSE}
+trend_by_week %>% 
+  ggplot(aes(x = day_of_week, y = number_of_rides, fill = member_casual)) +
+  geom_col(position = "dodge") +
+  labs(y="Number of Rides", x="Weekday", title = "Number of Rides per Weekday", fill = NULL)
+```
+
+```{r, echo=FALSE}
+trend_by_week %>% 
+  ggplot(aes(x = day_of_week, y = average_duration, fill = member_casual)) +
+  geom_col(position = "dodge") +
+  labs(y="Average Duration", x="Weekday", title = "Average Duration of Rides per Weekday",fill = NULL)
+```
+
+Members take shorter trips and ride more on weekdays. Casual riders take
+longer trips, and ride more on weekends. Add to this the fact that
+casual riders are about 6 times more likely that members to take a
+non-stop round trip and the data begins to paint a picture.
+
+The data seem to indicate that most members use bikes to commute to work
+on weekdays.
+
+To test this hypothesis, we need to ask what time of day do users start
+their trips most often? If this hypothesis is true, and assuming a 9 to
+5 work day, we would expect two jumps in the number of trips members
+take, corresponding to when the work day starts and ends.
+
+3.  At what time of day do members and casual users start their trips?
+
+```{r, include=FALSE}
+divvy_all_trips$hours <- format(as.POSIXlt(divvy_all_trips$started_at),
+                                "%H")
+hourly_trend <- divvy_all_trips %>% 
+  group_by(member_casual, hours) %>% 
+  summarise(number_of_rides = n()) %>% 
+  arrange(member_casual, hours)
+```
+
+```{r, echo=FALSE}
+hourly_trend %>% 
+  ggplot(aes(x=hours, y=number_of_rides, fill = member_casual))+
+  geom_col(position = "dodge")+
+  labs(y = "Number Of Rides", x = "Starting Hours", title = "Number of Rides per Hour", fill = NULL)
+```
+
+The graphs seems to confirm the hypothesis that most members ride to and from work.
+
+This brings up another question; are there casual users whose pattern of bike use fits the pattern we've identified as being related to members?
+
+4.  Filtering for casual trips taken during the work week, and whose trip durations are close to the average trip duration of members may provide a clue. In this case we'll limit the casual users trip duration to 1.5 times the average of members.
+
+```{r, include=FALSE}
+casual_converts <- divvy_all_trips %>% 
+  filter(member_casual == "casual" & day_of_week != "Saturday" & 
+           day_of_week != "Sunday" & trip_duration < 1200) %>% 
+  group_by(member_casual, hours) %>% 
+  summarise(rides_below_1200 = n()) %>% 
+  arrange(member_casual, hours)
+rides_above_1200 <- divvy_all_trips %>% 
+  filter(member_casual == "casual" & day_of_week != "Saturday" & 
+           day_of_week != "Sunday" & trip_duration > 1200) %>% 
+  group_by(member_casual, hours) %>% 
+  summarise(rides_above_1200 = n()) %>% 
+  arrange(member_casual, hours)
+casual_converts$rides_above_1200 <- rides_above_1200$rides_above_1200
+rm(rides_above_1200)
+```
+
+```{r, echo=FALSE}
+  ggplot(data = casual_converts)+
+    geom_col(mapping = aes(x = hours, y = rides_above_1200), 
+             fill = "blue", alpha = 3/5)+
+    geom_point(mapping = aes(x = hours, y = rides_below_1200), 
+               color = "red")+
+  labs(title = "Casual rides Below 20 minutes vs Above 20 minutes",
+       x = "Hour of the Day", y = "Number of Trips")
+```
+
+We see a noticeable bump in the number of trips that start at 8 for
+trips that are shorter than 20 minutes(red dots). This bump goes away
+for trips longer than 20 minutes(blue bar). This hints that we might be
+able to identify casual riders that are a good fit for conversion to
+members.
+
+It is also interesting to note the huge rise in trip numbers that start
+around 5. Might more casual riders be taking trips back home from work
+than those who take trips to work?
+
+More data, which is unavailable, is needed to answer the questions
+brought up by this preliminary analysis.
+
+### Key findings
+
+1.  Key target for conversion are casual riders whose trips begin at 8am
+    and 5pm on weekdays.
+2.  Most members use the Cyclistic service to commute to and from work
+    on weekdays.
+3.  More data, specifically user ID that ties a trip to a specific user
+    is needed for further analysis. This data might help clarify whether
+    the massive influx of trips by casual riders at 5pm corresponds to
+    people commuting home, and thus give us another avenue for creating
+    marketing campaigns for conversion.
