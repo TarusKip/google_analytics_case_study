@@ -2,6 +2,7 @@
 This case study is completed as part of the Google Data Analytics Professional Certificate and it serves to highlight some of the skills gained from the program that can be applied in a position as a data analyst.
 
 Language: R
+
 Format: rmd file
 
 Skills displayed include data cleaning and manipulation, data analysis, visualisation and understanding business problems and how to leverage data to find solutions.
